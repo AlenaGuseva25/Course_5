@@ -1,5 +1,4 @@
 from datetime import timedelta
-from django.contrib.auth.models import User
 from django.db import models
 from django.core.validators import MaxValueValidator, MinValueValidator
 from rest_framework.exceptions import ValidationError
@@ -47,7 +46,8 @@ class Habit(models.Model):
     )
     reward = models.TextField(null=True, blank=True, verbose_name='Вознаграждение за выполненную привычку')
     time_to_complete = models.DurationField(
-        null=True, blank=True, validators=[MinValueValidator(limit_value=timedelta(minutes=2))],
+        null=True, blank=True,
+        validators=[MaxValueValidator(limit_value=timedelta(minutes=2))],
         help_text='Формат: ЧЧ:ММ:СС (например, 00:01:00 — 1 минута)'
     )
     is_public = models.BooleanField(default=False, verbose_name='Признак публичности')
