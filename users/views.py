@@ -1,6 +1,6 @@
 from rest_framework import generics
 from rest_framework.decorators import permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.models import User
 from users.serializers import TokenSerializer, UserSerializer
@@ -20,32 +20,33 @@ class UserCreateAPIView(generics.CreateAPIView):
     def perform_create(self, serializer):
         '''Хеш пароля'''
         user = serializer.save()
-        user.set_password(user.password)
+        user.set_password(serializer.validated_data['password'])
         user.save()
 
 
-@permission_classes([IsAuthenticated])
 class UserListAPIView(generics.ListAPIView):
     '''Список зарегистированных пользователей'''
     serializer_class = UserSerializer
+    permission_classes = [IsAdminUser]
     queryset = User.objects.all()
 
 
-@permission_classes([IsAuthenticated])
 class UserRetrieveAPIView(generics.RetrieveAPIView):
     '''Детальная информация по пользователю'''
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
 
 
-@permission_classes([IsAuthenticated])
 class UserUpdateAPIView(generics.UpdateAPIView):
     '''Изменение информацию по пользователю'''
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
 
 
-@permission_classes([IsAuthenticated])
 class UserDestroyAPIView(generics.DestroyAPIView):
     '''Удаление информации по пользователю'''
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
