@@ -1,7 +1,6 @@
 import telegram
 from celery import shared_task
 from django.utils import timezone
-from telegram.error import TelegramError
 
 from config.settings import TG_BOT_TOKEN
 from habits.models import Habit

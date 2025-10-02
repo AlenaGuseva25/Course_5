@@ -8,7 +8,7 @@ User = settings.AUTH_USER_MODEL
 
 
 class Habit(models.Model):
-    '''Модель привычки'''
+    """Модель привычки"""
 
     PERIODICITY_CHOICES = [
         (1, "ежедневно"),
@@ -59,7 +59,7 @@ class Habit(models.Model):
     )
 
     def clean(self):
-        '''Проверка заданных полей'''
+        """Проверка заданных полей"""
         if self.pleasantness and (self.reward or self.related_habit):
             raise ValidationError(
                 'Приятная привычка не должна иметь вознаграждения'

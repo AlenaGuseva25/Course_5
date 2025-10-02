@@ -13,6 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
                   'password',
                   )
 
+
 class TokenSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

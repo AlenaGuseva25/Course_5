@@ -1,13 +1,10 @@
 from django.test import TestCase
-from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework.reverse import reverse
 
 from users.models import User
 from users.serializers import UserSerializer, TokenSerializer
-
-User = get_user_model()
 
 
 class UserModelTest(TestCase):
@@ -95,7 +92,6 @@ class TokenSerializerTest(TestCase):
 
         token = TokenSerializer.get_token(self.user)
         self.assertIn('tg_id', token.payload)
-
 
         user_with_tg = User.objects.create(
             email='tguser@example.com',

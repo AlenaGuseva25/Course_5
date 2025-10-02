@@ -15,7 +15,6 @@ class HabitCreateTestCase(APITestCase):
         self.user.set_password("testpass123")
         self.user.save()
 
-
         self.habit_1 = Habit.objects.create(
             owner=self.user,
             place="Кухня",
@@ -26,7 +25,6 @@ class HabitCreateTestCase(APITestCase):
             time_to_complete="00:02:00",
             is_public=False,
         )
-
 
         self.habit_2 = Habit.objects.create(
             owner=self.user,
@@ -72,7 +70,6 @@ class HabitCreateTestCase(APITestCase):
         response = self.client.post(url, data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-
         self.assertIn('non_field_errors', response.data)
         self.assertIn(
             'Нужно указать либо связанную привычку, либо вознаграждение',
@@ -98,4 +95,3 @@ class HabitsWithoutAuthorizationTest(APITestCase):
         response = self.client.post(url, data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(Habit.objects.filter(action="test").exists())
-
