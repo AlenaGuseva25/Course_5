@@ -24,19 +24,19 @@ class Habit(models.Model):
         User, on_delete=models.CASCADE, related_name='habits', verbose_name="Пользователь")
 
     place = models.CharField(
-        max_length=160, null=True, verbose_name='Место где выполняется привычка'
+        null=True, blank=True, max_length=160, verbose_name='Место где выполняется привычка'
     )
 
     time = models.TimeField(
-        null=True, verbose_name='время', help_text='в формате чч:мм',
+        null=True, blank=True, verbose_name='время', help_text='в формате чч:мм',
     )
 
     action = models.CharField(max_length=160, verbose_name='Привычка')
 
     pleasantness = models.BooleanField(default=False, help_text='Признак приятной привычки')
 
-    sheaf = models.ForeignKey(
-        'self', on_delete=models.CASCADE, null=True, verbose_name='Связанная привычка'
+    related_habit = models.ForeignKey(
+        'self', on_delete=models.CASCADE, null=True, blank=True, verbose_name='Связанная привычка'
     )
     periodicity = models.PositiveSmallIntegerField(
         choices=PERIODICITY_CHOICES,
@@ -44,7 +44,7 @@ class Habit(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(7)],
         help_text='Периодичность: 1-ежедневно, 7-еженедельно',
     )
-    reward = models.TextField(null=True, blank=True, verbose_name='Вознаграждение за выполненную привычку')
+    reward = models.TextField(null=True, blank=True, verbose_name='Вознаграждение за выполненную привычку!')
     time_to_complete = models.DurationField(
         null=True, blank=True,
         validators=[MaxValueValidator(limit_value=timedelta(minutes=2))],
@@ -60,11 +60,11 @@ class Habit(models.Model):
 
     def clean(self):
         '''Проверка заданных полей'''
-        if self.pleasantness and (self.reward or self.sheaf):
+        if self.pleasantness and (self.reward or self.related_habit):
             raise ValidationError(
                 'Приятная привычка не должна иметь вознаграждения'
             )
-        if not self.pleasantness and self.reward and self.sheaf:
+        if not self.pleasantness and self.reward and self.related_habit:
             raise ValidationError(
                 'Необходимо указать либо вознаграждение, либо связанную привычку'
             )

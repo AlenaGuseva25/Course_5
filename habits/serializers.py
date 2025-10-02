@@ -14,7 +14,7 @@ class HabitSerializer(serializers.ModelSerializer):
             'place',
             'pleasantness',
             'time',
-            'sheaf',
+            'related_habit',
             'periodicity',
             'reward',
             'time_to_complete',
@@ -27,7 +27,7 @@ class HabitSerializer(serializers.ModelSerializer):
         '''Валидация привычек'''
         pleasantness = data.get('pleasantness', False)
         reward = data.get('reward')
-        sheaf = data.get('sheaf')
+        related_habit = data.get('related_habit')
         time_to_complete = data.get('time_to_complete')
         periodicity = data.get("periodicity", 1)
         is_public = data.get('is_public', False)
@@ -36,16 +36,16 @@ class HabitSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'Приятная привычка не имеет вознаграждения'
                 )
-            if sheaf:
+            if related_habit:
                 raise serializers.ValidationError(
                     'Приятная привычка не может быть связана'
                 )
             return data
-        if reward and sheaf:
+        if reward and related_habit:
             raise serializers.ValidationError(
                 'Нужно указать либо связанную привычку, либо вознаграждение, наличие сразу обоих недопустимо'
             )
-        if sheaf is not None and not sheaf.pleasantness:
+        if related_habit is not None and not related_habit.pleasantness:
             raise serializers.ValidationError(
                 'Связанная привычка должна быть приятной'
             )
@@ -54,7 +54,7 @@ class HabitSerializer(serializers.ModelSerializer):
                 'Время выполнения должно быть от 1 секунды до 2 минут'
             )
         if is_public and not pleasantness:
-            if not reward and not sheaf:
+            if not reward and not related_habit:
                 raise serializers.ValidationError(
                     'Публичная привычка должна иметь вознаграждение или связанную привычку'
                 )

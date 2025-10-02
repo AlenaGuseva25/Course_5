@@ -27,6 +27,7 @@ class HabitRetrieveAPIView(generics.RetrieveAPIView):
     '''Закрытый доступ к выбранной привычке'''
     serializer_class = HabitSerializer
     permission_classes = [IsAuthenticated, OwnerOrReadOnly]
+    queryset = Habit.objects.all()
 
 
 class HabitCreateAPIView(generics.CreateAPIView):

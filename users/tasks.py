@@ -8,25 +8,24 @@ from habits.models import Habit
 
 
 @shared_task
-def send_telegram_message(chat_id):
-    '''Отправка напоминания в Telegram'''
+def send_telegram_reminders():
+    '''Отправка напоминаний в Telegram'''
     try:
         bot = telegram.Bot(token=TG_BOT_TOKEN)
         now = timezone.now()
 
         habits_to_remind = Habit.objects.filter(
-            last_reminder__lte=now - timezone.timedelta(days=1),
             time__hour=now.hour,
-            time__minute=now.minute
+            time__minute=now.minute,
+            last_remember__lt=now.replace(hour=0, minute=0, second=0)
         )
 
         for habit in habits_to_remind:
-            message = f" Напоминание: {habit.action} в {habit.time.strftime('%H:%M')}"
-            bot.send_message(chat_id=chat_id, text=message)
-            habit.last_reminder = now
-            habit.save(update_fields=['last_reminder'])
+            if habit.owner.tg_id:
+                message = f"⏰ Напоминание: {habit.action} в {habit.place} в {habit.time.strftime('%H:%M')}"
+                bot.send_message(chat_id=habit.owner.tg_id, text=message)
+                habit.last_remember = now
+                habit.save()
 
-    except TelegramError as e:
-        print(f"Telegram API error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Ошибка отправки напоминаний: {e}")
