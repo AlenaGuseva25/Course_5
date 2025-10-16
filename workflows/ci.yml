@@ -1,0 +1,184 @@
+name: Course_5 CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            .venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi --no-root
+
+      - name: Run flake8
+        run: |
+          poetry install --no-interaction --no-ansi
+          poetry run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Create environment file
+        run: |
+          echo "SECRET_KEY=test-key-12345" > .env
+          echo "DEBUG=True" >> .env
+          echo "POSTGRES_DB=test_db" >> .env
+          echo "POSTGRES_USER=postgres" >> .env
+          echo "POSTGRES_PASSWORD=postgres" >> .env
+          echo "POSTGRES_HOST=localhost" >> .env
+          echo "POSTGRES_PORT=5432" >> .env
+
+      - name: Run migrate
+        run: poetry run python manage.py migrate
+
+      - name: Run tests
+        run: poetry run python manage.py test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Log in in Docker hub
+        run: echo ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/course_5:${{ github.sha }} .
+
+      - name: Push Docker image to Docker Hub
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/course_5:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+
+    steps:
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Create and deploy archive
+        run: |
+          git clone https://github.com/AlenaGuseva25/working_with_django_2.git /tmp/deploy_repo
+          cd /tmp/deploy_repo &&
+          tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
+          scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            mkdir -p ${{ secrets.DEPLOY_DIR }} &&
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            tar -xzf /tmp/deploy.tar.gz &&
+            rm /tmp/deploy.tar.gz
+          "
+
+      - name: Install dependencies on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+              sleep 1
+            done
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            sudo apt-get update &&
+            sudo apt-get install -y python3-pip python3-venv &&
+            python3 -m venv /tmp/poetry_venv &&
+            /tmp/poetry_venv/bin/pip install poetry &&
+            /tmp/poetry_venv/bin/poetry config virtualenvs.in-project true &&
+            /tmp/poetry_venv/bin/poetry install --no-root
+          "
+
+      - name: Apply migrations on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            source .venv/bin/activate &&
+            python manage.py migrate
+          "
+
+      - name: Configure static root
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            source .venv/bin/activate &&
+            mkdir -p ${{ secrets.DEPLOY_DIR }}/static
+            echo '' >> config/settings.py
+            echo '# Static files for production' >> config/settings.py
+            echo 'STATIC_ROOT = \"${{ secrets.DEPLOY_DIR }}/static\"' >> config/settings.py
+          "
+
+      - name: Collect static files on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            source .venv/bin/activate &&
+            python manage.py collectstatic --noinput --clear
+          "
+
+      - name: Start application manually
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }} &&
+            source .venv/bin/activate &&
+            pkill -f 'python manage.py runserver' || true
+            sleep 2
+            nohup python manage.py runserver 0.0.0.0:8000 > ${{ secrets.DEPLOY_DIR }}/django.log 2>&1 &
+            sleep 10
+            curl -f http://localhost:8000/ && echo 'SUCCESS: App is running!' || echo 'FAILED: App not responding'
+            tail -20 ${{ secrets.DEPLOY_DIR }}/django.log
+          "
+
+      
