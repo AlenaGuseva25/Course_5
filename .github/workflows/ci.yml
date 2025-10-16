@@ -50,8 +50,7 @@ jobs:
         run: poetry install --no-interaction --no-ansi --no-root
 
       - name: Run flake8
-        run: |
-          poetry run flake8 . --count --max-complexity=10 --max-line-length=127 --statistics --exclude=*/migrations/*
+        run: poetry run flake8
 
       - name: Install PostgreSQL client
         run: |
