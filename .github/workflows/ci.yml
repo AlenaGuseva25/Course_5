@@ -1,4 +1,4 @@
-name: Coursse_5 CI
+name: Course_5 CI
 
 on: [push, pull_request]
 
@@ -117,7 +117,7 @@ jobs:
         run: |
           git clone https://github.com/AlenaGuseva25/working_with_django_2.git /tmp/deploy_repo
           cd /tmp/deploy_repo &&
-          tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
+          tar --exclude='pycache' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
           scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             mkdir -p ${{ secrets.DEPLOY_DIR }} &&
@@ -125,60 +125,3 @@ jobs:
             tar -xzf /tmp/deploy.tar.gz &&
             rm /tmp/deploy.tar.gz
           "
-
-      - name: Install dependencies on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-              sleep 1
-            done
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            sudo apt-get update &&
-            sudo apt-get install -y python3-pip python3-venv &&
-            python3 -m venv /tmp/poetry_venv &&
-            /tmp/poetry_venv/bin/pip install poetry &&
-            /tmp/poetry_venv/bin/poetry config virtualenvs.in-project true &&
-            /tmp/poetry_venv/bin/poetry install --no-root
-          "
-
-      - name: Apply migrations on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            source .venv/bin/activate &&
-            python manage.py migrate
-          "
-
-      - name: Configure static root
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            source .venv/bin/activate &&
-            mkdir -p ${{ secrets.DEPLOY_DIR }}/static
-            echo '' >> config/settings.py
-            echo '# Static files for production' >> config/settings.py
-            echo 'STATIC_ROOT = \"${{ secrets.DEPLOY_DIR }}/static\"' >> config/settings.py
-          "
-
-      - name: Collect static files on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            source .venv/bin/activate &&
-            python manage.py collectstatic --noinput --clear
-          "
-
-      - name: Start application manually
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            source .venv/bin/activate &&
-            pkill -f 'python manage.py runserver' || true
-            sleep 2
-            nohup python manage.py runserver 0.0.0.0:8000 > ${{ secrets.DEPLOY_DIR }}/django.log 2>&1 &
-            sleep 10
-            curl -f http://localhost:8000/ && echo 'SUCCESS: App is running!' || echo 'FAILED: App not responding'
-            tail -20 ${{ secrets.DEPLOY_DIR }}/django.log
-          "
-
-      
