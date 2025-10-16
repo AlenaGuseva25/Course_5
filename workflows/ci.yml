@@ -1,6 +1,8 @@
 name: Coursse_5 CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main, feature/course_5 ]
 
 jobs:
   test:
