@@ -113,7 +113,19 @@ jobs:
 
       - name: TEST - Create archive
         run: |
+          echo "=== Current directory ==="
+          pwd
+          ls -la
+
+          echo "=== Copying files to temp directory ==="
+          mkdir -p /tmp/deploy_files
+          cp -r . /tmp/deploy_files/
+
+          echo "=== Files in temp directory ==="
+          ls -la /tmp/deploy_files/
+
           echo "=== Creating archive ==="
+          cd /tmp/deploy_files
           tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
 
           echo "=== Archive info ==="
