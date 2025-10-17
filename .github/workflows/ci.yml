@@ -1,4 +1,4 @@
-name: Course_5 CI
+name: Coursse_5 CI
 
 on: [push, pull_request]
 
