@@ -194,6 +194,18 @@ jobs:
             echo 'App started!'
           "
 
+      - name: Check application logs
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+          cd ${{ secrets.DEPLOY_DIR }}
+          echo '=== Application logs ==='
+          tail -30 django.log
+          echo '=== Running processes ==='
+          ps aux | grep python
+          echo '=== Port 8001 status ==='
+          ss -tlnp | grep 8001
+          "
+
       - name: Final check
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
