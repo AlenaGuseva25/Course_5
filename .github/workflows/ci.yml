@@ -178,10 +178,11 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             cd ${{ secrets.DEPLOY_DIR }}
             echo '=== Starting application ==='
-            nohup python3 manage.py runserver 0.0.0.0:8001 > django.log 2>&1 &
-            sleep 5
+            source .venv/bin/activate
+            nohup python manage.py runserver 0.0.0.0:8001 > django.log 2>&1 &
+            sleep 10  # Дать больше времени для запуска
             echo 'App started!'
-          "    
+          "
 
       - name: Final check
         run: |
