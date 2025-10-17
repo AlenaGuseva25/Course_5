@@ -113,10 +113,15 @@ jobs:
 
       - name: Create and deploy archive
         run: |
-          git clone https://github.com/AlenaGuseva25/Course_5.git /tmp/deploy_repo
+          mkdir -p /tmp/deploy_repo
+          cp -r * /tmp/deploy_repo/ 2>/dev/null || true
+          cp -r .[^.]* /tmp/deploy_repo/ 2>/dev/null || true
+
           cd /tmp/deploy_repo &&
-          tar --exclude='pycache' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
+          tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
+
           scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/
+
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             mkdir -p ${{ secrets.DEPLOY_DIR }} &&
             cd ${{ secrets.DEPLOY_DIR }} &&
