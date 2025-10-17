@@ -128,3 +128,12 @@ jobs:
             tar -xzf /tmp/deploy.tar.gz &&
             rm /tmp/deploy.tar.gz
           "
+
+      - name: Final check
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            echo '=== FINAL STATE ==='
+            ls -la ${{ secrets.DEPLOY_DIR }}/
+            echo '=== Is app running? ==='
+            curl -f http://localhost:8000/ || echo 'App not running'
+          "
