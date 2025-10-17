@@ -158,6 +158,24 @@ jobs:
           tar -xzf /tmp/deploy.tar.gz
           echo '=== Files after extraction ==='
           ls -la
+          "
+
+      - name: Install dependencies on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }}
+            echo '=== Installing dependencies ==='
+            python3 -m pip install -r requirements.txt || python3 -m pip install poetry && poetry install --no-root
+          "
+
+      - name: Start application
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }}
+            echo '=== Starting application ==='
+            nohup python3 manage.py runserver 0.0.0.0:8001 > django.log 2>&1 &
+            sleep 5
+            echo 'App started!'
           "    
 
       - name: Final check
