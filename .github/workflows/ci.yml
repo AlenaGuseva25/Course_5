@@ -165,7 +165,12 @@ jobs:
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             cd ${{ secrets.DEPLOY_DIR }}
             echo '=== Installing dependencies ==='
-            python3 -m pip install -r requirements.txt || python3 -m pip install poetry && poetry install --no-root
+            python3 -m venv /tmp/poetry_venv
+            /tmp/poetry_venv/bin/pip install --upgrade pip
+            /tmp/poetry_venv/bin/pip install poetry
+            /tmp/poetry_venv/bin/poetry config virtualenvs.in-project true
+            /tmp/poetry_venv/bin/poetry install --no-root
+            echo 'Dependencies installed!'
           "
 
       - name: Start application
