@@ -149,6 +149,17 @@ jobs:
             tar -tzf /tmp/deploy.tar.gz | wc -l
           "
 
+      - name: Extract archive on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+          echo '=== Extracting archive ==='
+          mkdir -p ${{ secrets.DEPLOY_DIR }}
+          cd ${{ secrets.DEPLOY_DIR }}
+          tar -xzf /tmp/deploy.tar.gz
+          echo '=== Files after extraction ==='
+          ls -la
+          "    
+
       - name: Final check
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
