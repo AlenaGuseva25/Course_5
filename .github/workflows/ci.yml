@@ -111,20 +111,14 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
-      - name: Create and deploy archive
+      - name: SIMPLE TEST - Copy one file
         run: |
-          cp -r . /tmp/deploy_repo/
-
-          cd /tmp/deploy_repo &&
-          tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
-
-          scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/
-
+          echo "TEST FILE - $(date)" > test.txt
+          scp -o StrictHostKeyChecking=no test.txt ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/test_from_github.txt
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            mkdir -p ${{ secrets.DEPLOY_DIR }} &&
-            cd ${{ secrets.DEPLOY_DIR }} &&
-            tar -xzf /tmp/deploy.tar.gz &&
-            rm /tmp/deploy.tar.gz
+            echo '=== File on server ==='
+            ls -la /tmp/test_from_github.txt
+            cat /tmp/test_from_github.txt
           "
 
       - name: Final check
