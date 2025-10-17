@@ -160,6 +160,16 @@ jobs:
           ls -la
           "
 
+      - name: Create environment file on server
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+          cd ${{ secrets.DEPLOY_DIR }}
+          echo '=== Creating .env file ==='
+          echo 'SECRET_KEY=test-secret-key-1234567890' > .env
+          echo 'DEBUG=True' >> .env
+          cat .env
+          "
+
       - name: Install dependencies on server
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
