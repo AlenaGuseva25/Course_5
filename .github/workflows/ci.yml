@@ -134,16 +134,6 @@ jobs:
             tar -tzf /tmp/deploy.tar.gz | wc -l
           "
 
-      - name: Start application on port 8001
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }}
-            pkill -f 'python manage.py runserver' || true
-            sleep 2
-            nohup python manage.py runserver 0.0.0.0:8001 > django.log 2>&1 &
-            echo 'App started on port 8001'
-          "
-
       - name: Final check
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
