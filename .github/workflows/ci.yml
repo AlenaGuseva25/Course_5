@@ -106,32 +106,35 @@ jobs:
     needs: [test, build]
 
     steps:
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
+      - name: Check out code
+        uses: actions/checkout@v3
 
       - name: TEST - Create archive
         run: |
           echo "=== Current directory ==="
           pwd
           ls -la
-
+            
           echo "=== Copying files to temp directory ==="
           mkdir -p /tmp/deploy_files
           cp -r . /tmp/deploy_files/
-
+            
           echo "=== Files in temp directory ==="
           ls -la /tmp/deploy_files/
-
+            
           echo "=== Creating archive ==="
           cd /tmp/deploy_files
           tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
-
+            
           echo "=== Archive info ==="
           ls -lh /tmp/deploy.tar.gz
           echo "Files in archive:"
-          tar -tzf /tmp/deploy.tar.gz | wc -l
+          tar -tzf /tmp/deploy.tar.gz | wc -l  
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
 
       - name: TEST - Copy archive to server
         run: |
