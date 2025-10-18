@@ -136,81 +136,36 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
-      - name: TEST - Copy archive to server
-        run: |
-          echo "=== Copying archive ==="
-          scp -o StrictHostKeyChecking=no /tmp/deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/tmp/
-
-          echo "=== Checking archive on server ==="
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            echo 'Archive on server:'
-            ls -lh /tmp/deploy.tar.gz
-            echo 'Files in archive on server:'
-            tar -tzf /tmp/deploy.tar.gz | wc -l
-          "
-
-      - name: Extract archive on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-          echo '=== Extracting archive ==='
-          mkdir -p ${{ secrets.DEPLOY_DIR }}
-          cd ${{ secrets.DEPLOY_DIR }}
-          tar -xzf /tmp/deploy.tar.gz
-          echo '=== Files after extraction ==='
-          ls -la
-          "
-
-      - name: Create environment file on server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-          cd ${{ secrets.DEPLOY_DIR }}
-          echo '=== Creating .env file ==='
-          echo 'SECRET_KEY=test-secret-key-1234567890' > .env
-          echo 'DEBUG=True' >> .env
-          cat .env
-          "
-
-      - name: Install dependencies on server
+      - name: Deploy with Docker Compose
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             cd ${{ secrets.DEPLOY_DIR }}
-            echo '=== Installing dependencies ==='
-            python3 -m venv /tmp/poetry_venv
-            /tmp/poetry_venv/bin/pip install --upgrade pip
-            /tmp/poetry_venv/bin/pip install poetry
-            /tmp/poetry_venv/bin/poetry config virtualenvs.in-project true
-            /tmp/poetry_venv/bin/poetry install --no-root
-            echo 'Dependencies installed!'
-          "
-
-      - name: Start application
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            cd ${{ secrets.DEPLOY_DIR }}
-            echo '=== Starting application ==='
-            source .venv/bin/activate
-            nohup python manage.py runserver 0.0.0.0:8001 > django.log 2>&1 &
-            sleep 10  # Дать больше времени для запуска
-            echo 'App started!'
-          "
-
-      - name: Check application logs
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-          cd ${{ secrets.DEPLOY_DIR }}
-          echo '=== Application logs ==='
-          tail -30 django.log
-          echo '=== Running processes ==='
-          ps aux | grep python
-          echo '=== Port 8001 status ==='
-          ss -tlnp | grep 8001
-          "
-
-      - name: Final check
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
-            echo '=== FINAL STATE ==='
-            ls -la ${{ secrets.DEPLOY_DIR }}/
-            echo '=== Is app running? ==='
-            curl -f http://localhost:8001/ || echo 'App not running'
+            
+              
+            echo '=== Stopping old containers ==='
+            docker compose down
+            
+            echo '=== Pulling latest code ==='
+            git pull origin main || true
+            
+            echo '=== Building and starting containers ==='
+            docker compose up --build -d
+            
+            echo '=== Waiting for startup ==='
+            sleep 30
+            
+            echo '=== Checking containers ==='
+            docker compose ps
+            
+            echo '=== Running migrations ==='
+            docker compose exec backend python manage.py migrate
+            
+            echo '=== Collecting static files ==='
+            docker compose exec backend python manage.py collectstatic --noinput
+            
+            echo '=== Checking application health ==='
+            curl -f http://localhost:8001/ && echo
+            curl -f http://localhost/ && echo 
+            
+            echo '=== Deployment completed successfully! ==='
           "
