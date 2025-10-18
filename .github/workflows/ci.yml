@@ -140,7 +140,7 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
             cd ${{ secrets.DEPLOY_DIR }}
-            
+
             echo '=== Creating .env file from secrets ==='
             cat > .env << 'EOF'
           SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
@@ -158,16 +158,16 @@ jobs:
           CELERY_RESULT_BACKEND=redis://redis:6379/0
           ALLOWED_HOSTS=localhost,127.0.0.1,${{ secrets.SERVER_IP }}
           DEBUG=False
-         EOF
-      
-         echo '=== Deploying with Docker Compose ==='
-         docker compose down
-         docker compose up --build -d
-         sleep 60
-         docker compose ps
-         docker compose logs backend
-         docker compose exec backend python manage.py migrate
-         docker compose exec backend python manage.py collectstatic --noinput
-         curl -f http://localhost:8001/ || echo 'Backend check'
-         curl -f http://localhost/ || echo 'Nginx check'
-         "
+          EOF
+
+          echo '=== Deploying with Docker Compose ==='
+          docker compose down
+          docker compose up --build -d
+          sleep 60
+          docker compose ps
+          docker compose logs backend
+          docker compose exec backend python manage.py migrate
+          docker compose exec backend python manage.py collectstatic --noinput
+          curl -f http://localhost:8001/ || echo 'Backend check'
+          curl -f http://localhost/ || echo 'Nginx check'
+          "
