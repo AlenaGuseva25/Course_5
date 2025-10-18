@@ -1,5 +1,4 @@
 import os
-import secrets
 from pathlib import Path
 
 from django.conf.global_settings import STATIC_ROOT
@@ -21,7 +20,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['51.250.96.252', 'localhost', '127.0.0.1']
 
 
 # Application definition
