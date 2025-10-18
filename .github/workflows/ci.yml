@@ -1,0 +1,173 @@
+name: Coursse_5 CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            .venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-ansi --no-root
+
+      - name: Run flake8
+        run: poetry run flake8
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U postgres; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+      - name: Create environment file
+        run: |
+          echo "SECRET_KEY=test-key-12345" > .env
+          echo "DEBUG=True" >> .env
+          echo "POSTGRES_DB=test_db" >> .env
+          echo "POSTGRES_USER=postgres" >> .env
+          echo "POSTGRES_PASSWORD=postgres" >> .env
+          echo "POSTGRES_HOST=localhost" >> .env
+          echo "POSTGRES_PORT=5432" >> .env
+
+      - name: Run migrate
+        run: poetry run python manage.py migrate
+
+      - name: Run tests
+        run: poetry run python manage.py test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Log in in Docker hub
+        run: echo ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/course_5:${{ github.sha }} .
+
+      - name: Push Docker image to Docker Hub
+        run: docker push ${{ secrets.DOCKER_HUB_USERNAME }}/course_5:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: TEST - Create archive
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          ls -la
+            
+          echo "=== Copying files to temp directory ==="
+          mkdir -p /tmp/deploy_files
+          cp -r . /tmp/deploy_files/
+            
+          echo "=== Files in temp directory ==="
+          ls -la /tmp/deploy_files/
+            
+          echo "=== Creating archive ==="
+          cd /tmp/deploy_files
+          tar --exclude='__pycache__' --exclude='.venv' --exclude='.git' -czf /tmp/deploy.tar.gz .
+            
+          echo "=== Archive info ==="
+          ls -lh /tmp/deploy.tar.gz
+          echo "Files in archive:"
+          tar -tzf /tmp/deploy.tar.gz | wc -l  
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Deploy with Docker Compose
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} "
+            cd ${{ secrets.DEPLOY_DIR }}
+
+            echo '=== Creating .env file from secrets ==='
+            cat > .env << 'EOF'
+          SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST=db
+          POSTGRES_PORT=5432
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CACHE_ENABLED=True
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_DB=0
+          CELERY_BROKER_URL=redis://redis:6379/0
+          CELERY_RESULT_BACKEND=redis://redis:6379/0
+          ALLOWED_HOSTS=localhost,127.0.0.1,${{ secrets.SERVER_IP }}
+          DEBUG=False
+          EOF
+
+          echo '=== Deploying with Docker Compose ==='
+          docker compose down
+          docker compose up --build -d
+          sleep 60
+          docker compose ps
+          docker compose logs backend
+          docker compose exec backend python manage.py migrate
+          docker compose exec backend python manage.py collectstatic --noinput
+          curl -f http://localhost:8001/ || echo 'Backend check'
+          curl -f http://localhost/ || echo 'Nginx check'
+          "
